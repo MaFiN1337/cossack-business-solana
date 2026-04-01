@@ -1,0 +1,22 @@
+[toolchain]
+
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+item_nft = "AmdVbUTd8VV6XTd6udq3ZgoyqdTAf63iCZythgohzaLG"
+magic_token = "DusrqDQ7sK5mkSfztr4ZQaagCQz3v1XNSzCYH9uVWuvR"
+marketplace = "BicWhdttM2dX1ENj7GC6kP4JJhbMoynAvjVmfmHzGfwN"
+resource_manager = "4PFu4dsdPuDisbSjUCRjufg8xFysRWNADKViwW43Ch5R"
+search = "BSMa3VZ7xjFrbVBzhv2bGd6PAsiaHYWzwiGnx3xwYfdb"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "/home/anton/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
