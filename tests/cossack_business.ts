@@ -15,9 +15,11 @@ import {
 import { expect } from "chai";
 
 describe("cossack_business_multi_resource", () => {
+  // налаштування провайдера для взаємодії з мережею
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
+  // ініціалізація інтерфейсів програм
   const resourceProgram = anchor.workspace.ResourceManager as Program<ResourceManager>;
   const itemNftProgram = anchor.workspace.ItemNft as Program<ItemNft>;
   const searchProgram = anchor.workspace.Search as Program<Search>;
@@ -26,25 +28,30 @@ describe("cossack_business_multi_resource", () => {
 
   const admin = provider.wallet;
 
+  // генерація ключів для мінтів ресурсів
   let woodMint = anchor.web3.Keypair.generate();
   let ironMint = anchor.web3.Keypair.generate();
   let leatherMint = anchor.web3.Keypair.generate();
   
+  // генерація ключів для предметів та ігрової валюти
   let itemMintKeypair = anchor.web3.Keypair.generate();
   let magicTokenMint = anchor.web3.Keypair.generate();
   
+  // змінні для адрес токенних акаунтів гравця
   let playerWoodATA: anchor.web3.PublicKey;
   let playerIronATA: anchor.web3.PublicKey;
   let playerLeatherATA: anchor.web3.PublicKey;
   let playerItemATA: anchor.web3.PublicKey;
   let playerMagicATA: anchor.web3.PublicKey;
 
+  // розрахунок адрес pda акаунтів
   const [gameConfigPDA] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("game_config")], resourceProgram.programId);
   const [nftAuthorityPDA] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("nft_authority")], itemNftProgram.programId);
   const [magicMintAuthority] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("mint_authority")], magicTokenProgram.programId);
   const [playerPDA] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("player"), admin.publicKey.toBuffer()], searchProgram.programId);
 
   it("1. Ініціалізація інфраструктури", async () => {
+    // перевірка існування та створення глобального конфігу гри
     const configExist = await provider.connection.getAccountInfo(gameConfigPDA);
     if (!configExist) {
       await resourceProgram.methods.initializeGame().accounts({
@@ -54,6 +61,7 @@ describe("cossack_business_multi_resource", () => {
       }).rpc();
     }
 
+    // створення мінту для магічних токенів
     const lamports = await provider.connection.getMinimumBalanceForRentExemption(getMintLen([]));
     const tx = new anchor.web3.Transaction().add(
       anchor.web3.SystemProgram.createAccount({
@@ -70,6 +78,7 @@ describe("cossack_business_multi_resource", () => {
   });
 
   it("2. Створення мінтів для всіх ресурсів", async () => {
+    // ініціалізація мінтів дерева, заліза та шкіри
     await resourceProgram.methods.createResourceMint(0).accounts({
         admin: admin.publicKey,
         gameConfig: gameConfigPDA,
@@ -94,6 +103,7 @@ describe("cossack_business_multi_resource", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
     }).signers([leatherMint]).rpc();
 
+    // створення асоційованих токенних акаунтів для гравця
     playerWoodATA = getAssociatedTokenAddressSync(woodMint.publicKey, admin.publicKey, false, TOKEN_2022_PROGRAM_ID);
     playerIronATA = getAssociatedTokenAddressSync(ironMint.publicKey, admin.publicKey, false, TOKEN_2022_PROGRAM_ID);
     playerLeatherATA = getAssociatedTokenAddressSync(leatherMint.publicKey, admin.publicKey, false, TOKEN_2022_PROGRAM_ID);
@@ -107,6 +117,7 @@ describe("cossack_business_multi_resource", () => {
   });
 
   it("3. Поповнення ресурсів для крафту Шаблі", async () => {
+    // нарахування необхідних ресурсів на баланс гравця
     await resourceProgram.methods.mintResource(0, new anchor.BN(10)).accounts({
         gameConfig: gameConfigPDA,
         resourceMint: woodMint.publicKey,
@@ -135,6 +146,7 @@ describe("cossack_business_multi_resource", () => {
   });
 
   it("4. Крафт Шаблі (ID 1) з багатьох ресурсів", async () => {
+    // підготовка акаунтів та створення nft предмета через спалення ресурсів
     playerItemATA = getAssociatedTokenAddressSync(itemMintKeypair.publicKey, admin.publicKey, false, TOKEN_2022_PROGRAM_ID);
     
     const mintLen = getMintLen([]);
@@ -168,12 +180,14 @@ describe("cossack_business_multi_resource", () => {
         tokenProgram: TOKEN_2022_PROGRAM_ID,
     }).rpc();
 
+    // перевірка коректності списання ресурсів після крафту
     const woodBal = await provider.connection.getTokenAccountBalance(playerWoodATA);
     console.log("Залишок дерева:", woodBal.value.uiAmount);
     expect(Number(woodBal.value.uiAmount)).to.equal(9);
   });
 
   it("5. Продаж Шаблі на Маркетплейсі", async () => {
+    // продаж nft та отримання магічних токенів на баланс
     const tx = new anchor.web3.Transaction().add(
       createAssociatedTokenAccountInstruction(admin.publicKey, playerMagicATA, admin.publicKey, magicTokenMint.publicKey, TOKEN_2022_PROGRAM_ID)
     );
@@ -191,6 +205,7 @@ describe("cossack_business_multi_resource", () => {
         tokenProgram: TOKEN_2022_PROGRAM_ID,
     }).rpc();
 
+    // перевірка отримання прибутку у валюті magictoken
     const bal = await provider.connection.getTokenAccountBalance(playerMagicATA);
     console.log("Прибуток у MagicTokens:", bal.value.uiAmount);
     expect(Number(bal.value.uiAmount)).to.be.greaterThan(0);
